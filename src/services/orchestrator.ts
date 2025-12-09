@@ -2,6 +2,7 @@ import type { PlaceProvider, SearchQuery, ProviderResult, Place } from '../provi
 import { LocalDatabaseProvider } from '../providers/local.provider.js'
 import { GooglePlacesProvider } from '../providers/google.provider.js'
 import { RefugeRestroomsProvider } from '../providers/refuge.provider.js'
+import { BreweryProvider } from '../providers/brewery.provider.js'
 import { cacheService } from './cache.service.js'
 import { env } from '../config/env.js'
 
@@ -23,6 +24,9 @@ export class QueryOrchestrator {
 
     // Refuge Restrooms (public API, no key needed)
     this.registerProvider(new RefugeRestroomsProvider())
+
+    // Brewery (public API)
+    this.registerProvider(new BreweryProvider())
   }
 
   /**
