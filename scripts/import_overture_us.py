@@ -6,8 +6,6 @@ Import US POIs from Overture Maps into Supabase.
 - If a POI exists: UPDATE it (upsert)
 
 Usage:
-    export SUPABASE_URL="https://knxtiuihojxxrthtrtdq.supabase.co"
-    export SUPABASE_SERVICE_KEY="your-service-role-key"
     python import_overture_us.py
 
 Options:
@@ -15,6 +13,7 @@ Options:
     --category CAT  Only import specific category (e.g., 'restaurant')
     --state ST      Only import specific state (e.g., 'CA')
     --dry-run       Just count records, don't import
+    --yes           Skip confirmation prompt
 
 Future: For incremental updates using GERS changelog, see:
 https://docs.overturemaps.org/gers/changelog/
@@ -25,11 +24,17 @@ import sys
 import json
 import argparse
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 import duckdb
+from dotenv import load_dotenv
 from supabase import create_client
 from tqdm import tqdm
+
+# Load .env from parent directory (mapierhub/.env)
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(env_path)
 
 # Configuration
 OVERTURE_VERSION = "2025-11-19.0"
@@ -170,6 +175,7 @@ def main():
     parser.add_argument("--category", type=str, help="Filter by category (e.g., 'restaurant')")
     parser.add_argument("--state", type=str, help="Filter by state (e.g., 'CA')")
     parser.add_argument("--dry-run", action="store_true", help="Don't actually insert, just show stats")
+    parser.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompt")
     args = parser.parse_args()
 
     print("=" * 60)
@@ -200,7 +206,7 @@ def main():
         return
 
     # Confirm for large imports
-    if total > 10000:
+    if total > 10000 and not args.yes:
         confirm = input(f"\nThis will upsert {total:,} records. Continue? [y/N] ")
         if confirm.lower() != 'y':
             print("Aborted.")

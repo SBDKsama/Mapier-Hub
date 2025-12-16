@@ -27,6 +27,14 @@ export class GooglePlacesProvider extends BaseProvider {
 
   /**
    * Search for places using Google Places Nearby Search
+   *
+   * TODO: Implement data pipeline for Google Places results
+   * When this API returns results, we should:
+   * 1. Return results to client immediately (current behavior)
+   * 2. Send results to a background data pipeline that:
+   *    - Resolves Google POI info to enrich our local POI database
+   *    - Ensures compliance with Google Places API ToS (no direct caching, only enrichment)
+   *    - Updates our database with missing places or enhanced data
    */
   async search(query: SearchQuery): Promise<ProviderResult> {
     if (!env.GOOGLE_PLACES_API_KEY) {

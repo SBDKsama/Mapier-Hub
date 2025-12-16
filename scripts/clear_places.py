@@ -3,14 +3,19 @@
 Clear all places from the Supabase database.
 
 Usage:
-    export SUPABASE_URL="https://knxtiuihojxxrthtrtdq.supabase.co"
-    export SUPABASE_SERVICE_KEY="your-service-role-key"
     python clear_places.py
 """
 
 import os
 import sys
+from pathlib import Path
+
+from dotenv import load_dotenv
 from supabase import create_client
+
+# Load .env from parent directory (mapierhub/.env)
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(env_path)
 
 
 def get_supabase_client():
