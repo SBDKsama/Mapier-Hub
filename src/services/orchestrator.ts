@@ -3,6 +3,7 @@ import { LocalDatabaseProvider } from '../providers/local.provider.js'
 import { GooglePlacesProvider } from '../providers/google.provider.js'
 import { RefugeRestroomsProvider } from '../providers/refuge.provider.js'
 import { BreweryProvider } from '../providers/brewery.provider.js'
+import { NPSProvider } from '../providers/NPS.provider.js'
 import { cacheService } from './cache.service.js'
 import { env } from '../config/env.js'
 
@@ -11,7 +12,7 @@ import { env } from '../config/env.js'
  * Coordinates multiple providers, caching, result merging, and deduplication
  */
 export class QueryOrchestrator {
-  private providers: Map<string, PlaceProvider> = new Map()
+  public providers: Map<string, PlaceProvider> = new Map()
 
   constructor() {
     // Always register local provider
@@ -27,6 +28,11 @@ export class QueryOrchestrator {
 
     // Brewery (public API)
     this.registerProvider(new BreweryProvider())
+
+    // National Park Service (requires key)
+    if (env.NPS_API_KEY) {
+      this.registerProvider(new NPSProvider())
+    }
   }
 
   /**
@@ -266,6 +272,21 @@ export class QueryOrchestrator {
       ...primary,
       socials: [...new Set([...(primary.socials || []), ...(secondary.socials || [])])],
       websites: [...new Set([...(primary.websites || []), ...(secondary.websites || [])])],
+      phones: [...new Set([...(primary.phones || []), ...(secondary.phones || [])])],
+      emails: [...new Set([...(primary.emails || []), ...(secondary.emails || [])])],
+
+      // Merge address info (primary takes precedence, fallback to secondary)
+      street: primary.street || secondary.street,
+      city: primary.city || secondary.city,
+      state: primary.state || secondary.state,
+      postcode: primary.postcode || secondary.postcode,
+      country: primary.country || secondary.country,
+
+      // Metadata
+      brand: primary.brand || secondary.brand,
+      operating_status: primary.operating_status || secondary.operating_status,
+      google_place_id: primary.google_place_id || secondary.google_place_id,
+
       attributes: {
         ...secondary.attributes,
         ...primary.attributes, // Primary takes precedence

@@ -124,18 +124,24 @@ export class RefugeRestroomsProvider extends BaseProvider {
         secondary: restroom.accessible ? ['accessible'] : [],
       },
       confidence: 0.8, // Community data
+      // API doesn't provide these
       socials: [],
       websites: [],
+      phones: [],
+      emails: [],
+
+      // Address info
+      street: restroom.street,
+      city: restroom.city,
+      state: restroom.state,
+      country: restroom.country,
+
       attributes: {
         accessible: restroom.accessible,
         unisex: restroom.unisex,
         changing_table: restroom.changing_table,
         directions: restroom.directions,
         comment: restroom.comment,
-        street: restroom.street,
-        city: restroom.city,
-        state: restroom.state,
-        country: restroom.country,
         upvote: restroom.upvote,
         downvote: restroom.downvote,
         created_at: restroom.created_at,

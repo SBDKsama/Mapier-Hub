@@ -2,6 +2,7 @@ import { Client, PlaceInputType } from '@googlemaps/google-maps-services-js'
 import { BaseProvider } from './base.js'
 import type { SearchQuery, ProviderResult, Place } from './types.js'
 import { env } from '../config/env.js'
+import { cacheService } from '../services/cache.service.js'
 
 /**
  * Google Places Provider
@@ -163,13 +164,22 @@ export class GooglePlacesProvider extends BaseProvider {
       confidence: 0.9, // Google data is reliable
       socials: [],
       websites: googlePlace.website ? [googlePlace.website] : [],
+      phones: googlePlace.formatted_phone_number ? [googlePlace.formatted_phone_number] : [],
+      emails: [], // Google Places API doesn't typically provide emails
+
+      // Address info
+      street: googlePlace.vicinity, // Often the best approximation for street/address in nearby search
+
+      // Metadata
+      google_place_id: googlePlace.place_id,
+      operating_status: googlePlace.business_status,
+
       attributes: {
         rating: googlePlace.rating,
         user_ratings_total: googlePlace.user_ratings_total,
         price_level: googlePlace.price_level,
         opening_hours: googlePlace.opening_hours,
-        address: googlePlace.vicinity || googlePlace.formatted_address,
-        phone: googlePlace.formatted_phone_number,
+        address: googlePlace.formatted_address || googlePlace.vicinity,
         photos: googlePlace.photos?.map((p: any) => ({
           reference: p.photo_reference,
           width: p.width,

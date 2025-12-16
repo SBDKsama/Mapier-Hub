@@ -127,12 +127,17 @@ export class BreweryProvider extends BaseProvider {
             },
             confidence: 0.8,
             websites: brewery.website_url ? [brewery.website_url] : [],
+            phones: brewery.phone ? [brewery.phone] : [],
+
+            // Address info
+            street: brewery.street,
+            city: brewery.city,
+            state: brewery.state,
+            country: brewery.country, // OpenBreweryDB usually has country
+            postcode: brewery.postal_code,
+
             attributes: {
                 type: brewery.brewery_type,
-                street: brewery.street,
-                city: brewery.city,
-                state: brewery.state,
-                phone: brewery.phone,
             },
             providers: {
                 brewery: {

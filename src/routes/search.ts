@@ -1,14 +1,49 @@
 import { Hono } from 'hono'
+import { z } from 'zod'
 import { orchestrator } from '../services/orchestrator.js'
+import { LocalDatabaseProvider } from '../providers/local.provider.js'
+import { BoundedSearchQuery } from '../providers/types.js'
 import { validateBody, searchQuerySchema } from '../middleware/validator.js'
 import type { SearchQueryInput } from '../middleware/validator.js'
 
-const search = new Hono()
+const search = new Hono<{
+  Variables: {
+    validatedData: unknown
+  }
+}>()
 
 /**
  * POST /api/v1/search
  * Search for places based on location and filters
  */
+const boundedSearchSchema = z.object({
+  bounds: z.object({
+    northeast: z.object({
+      lat: z.number().min(-90).max(90),
+      lon: z.number().min(-180).max(180),
+    }),
+    southwest: z.object({
+      lat: z.number().min(-90).max(90),
+      lon: z.number().min(-180).max(180),
+    }),
+  }),
+  limit: z.number().min(1).max(200).default(50),
+})
+
+search.post('/bounds', validateBody(boundedSearchSchema), async (c) => {
+  const query = c.get('validatedData') as BoundedSearchQuery
+  const localProvider = orchestrator.providers.get('local') as LocalDatabaseProvider
+  if (!localProvider) {
+    return c.json({ success: false, error: 'Local provider not available' }, 503)
+  }
+  const result = await localProvider.searchBounds(query)
+  return c.json({
+    success: true,
+    results: result.places,
+    metadata: result.metadata,
+  })
+})
+
 search.post('/', validateBody(searchQuerySchema), async (c) => {
   try {
     const query = c.get('validatedData') as SearchQueryInput

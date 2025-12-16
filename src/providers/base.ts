@@ -74,6 +74,8 @@ export abstract class BaseProvider implements PlaceProvider {
       confidence: data.confidence || 0.5,
       socials: data.socials || [],
       websites: data.websites || [],
+      phones: data.phones || [],
+      emails: data.emails || [],
       attributes: data.attributes || {},
     }
   }
