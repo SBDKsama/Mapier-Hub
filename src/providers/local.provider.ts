@@ -22,7 +22,7 @@ export class LocalDatabaseProvider extends BaseProvider {
   async search(query: SearchQuery): Promise<ProviderResult> {
     const { result, latency } = await this.measureTime(async () => {
       // Call the Postgres function we created
-      const { data, error } = await supabase.rpc('search_places_nearby', {
+      const { data, error } = await supabase.rpc('search_places_nearby_v2', {
         search_lat: query.location.lat,
         search_lon: query.location.lon,
         radius_meters: query.location.radius || 1000,

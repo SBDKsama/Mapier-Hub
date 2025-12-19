@@ -4,6 +4,7 @@ import { GooglePlacesProvider } from '../providers/google.provider.js'
 import { RefugeRestroomsProvider } from '../providers/refuge.provider.js'
 import { BreweryProvider } from '../providers/brewery.provider.js'
 import { cacheService } from './cache.service.js'
+import { databaseService } from './database.service.js'
 import { env } from '../config/env.js'
 
 /**
@@ -76,10 +77,21 @@ export class QueryOrchestrator {
 
     const result = await localProvider.search(query)
 
-    // Cache the result (5 minutes TTL)
-    await cacheService.setSearchResults(cacheParams, result, 300)
+    // NEW: For each result, check Refuge Restroom API
+    const enrichedPlaces = await this.enrichWithRefugeRestrooms(
+      result.places,
+      query.location
+    )
 
-    return result
+    const finalResult = {
+      ...result,
+      places: enrichedPlaces,
+    }
+
+    // Cache the result (5 minutes TTL)
+    await cacheService.setSearchResults(cacheParams, finalResult, 300)
+
+    return finalResult
   }
 
   /**
@@ -467,6 +479,138 @@ export class QueryOrchestrator {
         friends_visited: [],
       },
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Enrichment Logic (Refuge Restrooms)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Enrich local places with Refuge Restroom data
+   */
+  private async enrichWithRefugeRestrooms(
+    places: Place[],
+    searchLocation: { lat: number; lon: number; radius?: number }
+  ): Promise<Place[]> {
+    // Query Refuge Restroom API for area
+    const refugeProvider = this.providers.get('refuge')
+    if (!refugeProvider) return places
+
+    // We explicitly ask for restrooms to trigger the provider
+    const restroomResults = await refugeProvider.search({
+      location: { ...searchLocation, radius: searchLocation.radius || 1000 },
+      category: 'restroom',
+      limit: 50,
+    })
+
+    console.log(`[Enrichment] Fetched ${restroomResults.places.length} restrooms from Refuge API:`,
+      restroomResults.places.map(p => p.name).join(', ')
+    )
+
+    // For each restroom, try to match to a POI
+    for (const restroom of restroomResults.places) {
+      await this.linkRestroomToPOI(restroom)
+    }
+
+    // Return places (now with layer associations loaded)
+    return this.loadPlacesWithLayers(places)
+  }
+
+  /**
+   * Link a Refuge Restroom to a Mapier POI
+   */
+  private async linkRestroomToPOI(restroom: Place): Promise<void> {
+    // 1. Try fuzzy match to existing POI
+    // Note: We search around the restroom's location
+    const matchedPOI = await databaseService.fuzzyMatchPOI({
+      lat: restroom.location.lat,
+      lon: restroom.location.lon,
+      name: restroom.name,
+      radius: 50, // 50 meters tolerance
+    })
+
+    if (!matchedPOI) {
+      // No match - create new POI for this restroom
+      const newPOI = await databaseService.createPOI({
+        name: restroom.name,
+        location: restroom.location,
+        category: { primary: 'restroom' },
+        // data_sources: ['refuge'], // Removed: Not in Place interface, handled by layers
+      })
+
+      await databaseService.createPlaceLayer({
+        place_id: newPOI.id,
+        layer_slug: 'refugee-restroom',
+        external_id: restroom.providers?.refuge?.externalId,
+        layer_data: restroom.attributes,
+      })
+      return
+    }
+
+    // 2. POI exists - check if layer association exists
+    const existingLayer = await databaseService.getPlaceLayer(matchedPOI.id, 'refugee-restroom')
+
+    if (!existingLayer) {
+      // Link existing POI to restroom layer
+      await databaseService.createPlaceLayer({
+        place_id: matchedPOI.id,
+        layer_slug: 'refugee-restroom',
+        external_id: restroom.providers?.refuge?.externalId,
+        layer_data: restroom.attributes,
+      })
+      return
+    }
+
+    // 3. Association exists - check if data changed
+    if (this.hasRestroomDataChanged(existingLayer.layer_data, restroom.attributes)) {
+      await databaseService.updatePlaceLayer(existingLayer.id, {
+        layer_data: restroom.attributes,
+        last_synced: new Date(),
+      })
+    } else {
+      // No changes, just touch timestamp
+      await databaseService.touchPlaceLayer(existingLayer.id)
+    }
+  }
+
+  /**
+   * Check if critical restroom data has changed
+   */
+  private hasRestroomDataChanged(existing: any, incoming: any): boolean {
+    return (
+      existing.accessible !== incoming.accessible ||
+      existing.unisex !== incoming.unisex ||
+      existing.changing_table !== incoming.changing_table
+    )
+  }
+
+  // -------------------------------------------------------------------------
+  // Database Operations (Delegated to DatabaseService)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Load and attach layer data to places
+   */
+  private async loadPlacesWithLayers(places: Place[]): Promise<Place[]> {
+    if (places.length === 0) return []
+
+    const placeIds = places.map((p) => p.id)
+    const layersMap = await databaseService.loadPlaceLayers(placeIds)
+
+    return places.map((place) => {
+      const layers = layersMap.get(place.id)
+      if (!layers) return place
+
+      // Merge layer data into place
+      // We can put it in 'attributes.layers' or a dedicated field
+      return {
+        ...place,
+        attributes: {
+          ...place.attributes,
+          layers: layers,
+        },
+      }
+    })
   }
 }
 
