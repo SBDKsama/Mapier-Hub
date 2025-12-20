@@ -46,7 +46,9 @@ export class BreweryProvider extends BaseProvider {
             query.query?.toLowerCase().includes('brew') ||
             !!typeMatch
 
-        if (!isBreweryQuery && !query.query) {
+        const isGeneralBrowse = !query.category && !query.query
+
+        if (!isBreweryQuery && !query.query && !isGeneralBrowse) {
             // If they specifically asked for 'restroom' or 'park' (and not brewery), return empty.
             return {
                 provider: this.name,

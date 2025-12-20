@@ -27,13 +27,16 @@ export class RefugeRestroomsProvider extends BaseProvider {
    */
   async search(query: SearchQuery): Promise<ProviderResult> {
     // Only search if looking for restrooms
+    // Only search if looking for restrooms OR if it's a general "browse" (no category/query)
     const isRestroomQuery =
       query.category?.includes('restroom') ||
       query.query?.toLowerCase().includes('restroom') ||
       query.query?.toLowerCase().includes('bathroom') ||
       query.query?.toLowerCase().includes('toilet')
 
-    if (!isRestroomQuery) {
+    const isGeneralBrowse = !query.category && !query.query
+
+    if (!isRestroomQuery && !isGeneralBrowse) {
       // Return empty results for non-restroom queries
       return {
         provider: this.name,
